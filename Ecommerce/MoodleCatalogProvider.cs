@@ -20,7 +20,7 @@ using Telerik.OpenAccess.Exceptions;
 
 namespace timw255.Sitefinity.Moodle.Ecommerce
 {
-    public class MoodleCatalogDataProvider : OpenAccessCatalogDataProvider
+    public class MoodleCatalogDataProvider : CatalogDataProviderBase
     {
         public OpenAccessProviderContext Context
         {

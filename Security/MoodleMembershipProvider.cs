@@ -176,7 +176,7 @@ namespace timw255.Sitefinity.Moodle.Security
             user.ApplicationName = ApplicationName;
             user.IsBackendUser = false;
 
-            user.Id = new Guid(xorIt(_key, BitConverter.GetBytes(mUser.Id)));
+            user.Id = new Guid(Helpers.xorIt(_key, BitConverter.GetBytes(mUser.Id)));
 
             user.Email = mUser.Email;
             user.Comment = string.Empty;
@@ -239,17 +239,17 @@ namespace timw255.Sitefinity.Moodle.Security
             var request = new RestRequest("moodle/webservice/rest/server.php?wstoken={wstoken}&wsfunction={wsfunction}&moodlewsrestformat=json", Method.POST);
 
             request.AddUrlSegment("wstoken", _wsToken);
-            request.AddUrlSegment("wsfunction", "core_user_get_users");
+            request.AddUrlSegment("wsfunction", "core_user_get_users_by_field");
 
-            byte[] result = xorIt(_key, id.ToByteArray());
+            byte[] result = Helpers.xorIt(_key, id.ToByteArray());
             string sId = (BitConverter.ToInt64(result, 0)).ToString();
 
-            request.AddParameter("criteria[0][key]", "id");
-            request.AddParameter("criteria[0][value]", sId);
+            request.AddParameter("field", "id");
+            request.AddParameter("values[0]", sId);
 
-            IRestResponse<UsersList> response = client.Execute<UsersList>(request);
+            IRestResponse<List<timw255.Sitefinity.Moodle.Models.User>> response = client.Execute<List<timw255.Sitefinity.Moodle.Models.User>>(request);
 
-            var mUser = response.Data.Users.FirstOrDefault();
+            var mUser = response.Data.FirstOrDefault();
 
             return mUser == null ? null : GetSitefinityUser(mUser);
         }
@@ -261,14 +261,14 @@ namespace timw255.Sitefinity.Moodle.Security
             var request = new RestRequest("moodle/webservice/rest/server.php?wstoken={wstoken}&wsfunction={wsfunction}&moodlewsrestformat=json", Method.POST);
 
             request.AddUrlSegment("wstoken", _wsToken);
-            request.AddUrlSegment("wsfunction", "core_user_get_users");
+            request.AddUrlSegment("wsfunction", "core_user_get_users_by_field");
 
-            request.AddParameter("criteria[0][key]", "email");
-            request.AddParameter("criteria[0][value]", email);
+            request.AddParameter("field", "email");
+            request.AddParameter("values[0]", email);
 
-            IRestResponse<UsersList> response = client.Execute<UsersList>(request);
+            IRestResponse<List<timw255.Sitefinity.Moodle.Models.User>> response = client.Execute<List<timw255.Sitefinity.Moodle.Models.User>>(request);
 
-            var mUser = response.Data.Users.FirstOrDefault();
+            var mUser = response.Data.FirstOrDefault();
 
             return mUser == null ? null : GetSitefinityUser(mUser);
         }
@@ -280,14 +280,14 @@ namespace timw255.Sitefinity.Moodle.Security
             var request = new RestRequest("moodle/webservice/rest/server.php?wstoken={wstoken}&wsfunction={wsfunction}&moodlewsrestformat=json", Method.POST);
 
             request.AddUrlSegment("wstoken", _wsToken);
-            request.AddUrlSegment("wsfunction", "core_user_get_users");
+            request.AddUrlSegment("wsfunction", "core_user_get_users_by_field");
 
-            request.AddParameter("criteria[0][key]", "username");
-            request.AddParameter("criteria[0][value]", username);
+            request.AddParameter("field", "username");
+            request.AddParameter("values[0]", username);
 
-            IRestResponse<UsersList> response = client.Execute<UsersList>(request);
+            IRestResponse<List<timw255.Sitefinity.Moodle.Models.User>> response = client.Execute<List<timw255.Sitefinity.Moodle.Models.User>>(request);
 
-            var mUser = response.Data.Users.FirstOrDefault();
+            var mUser = response.Data.FirstOrDefault();
 
             return mUser == null ? null : GetSitefinityUser(mUser);
         }
@@ -387,28 +387,6 @@ namespace timw255.Sitefinity.Moodle.Security
                 UpdateFailureCount(user, "password");
             }
             return flag;
-        }
-
-        public static Guid ToGuid(string src)
-        {
-            byte[] stringbytes = Encoding.UTF8.GetBytes(src);
-            byte[] hashedBytes = new System.Security.Cryptography.SHA1CryptoServiceProvider().ComputeHash(stringbytes);
-            Array.Resize(ref hashedBytes, 16);
-            return new Guid(hashedBytes);
-        }
-
-        public byte[] xorIt(byte[] key, byte[] data)
-        {
-            byte[] result = new byte[16];
-
-            key.CopyTo(result, 0);
-
-            for (int i = 0; i < data.Length; i++)
-            {
-                result[i] = (byte)(key[i] ^ data[i]);
-            }
-
-            return result;
         }
         #endregion
 
