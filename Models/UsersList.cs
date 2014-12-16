@@ -10,6 +10,6 @@ namespace timw255.Sitefinity.Moodle.Models
     public class UsersList
     {
         [JsonProperty(PropertyName = "users")]
-        public List<User> Users { get; set; }
+        public List<MoodleUser> Users { get; set; }
     }
 }

@@ -7,7 +7,6 @@ using Telerik.Sitefinity.Data;
 using Telerik.Sitefinity.Model;
 using Telerik.Sitefinity.Security;
 using Telerik.Sitefinity.Security.Data;
-using Telerik.Sitefinity.Security.Model;
 using System.Configuration.Provider;
 using Telerik.Sitefinity.Localization;
 using timw255.Sitefinity.Moodle.Models;
@@ -17,6 +16,7 @@ using Microsoft.CSharp.RuntimeBinder;
 using Newtonsoft.Json;
 using System.Dynamic;
 using Newtonsoft.Json.Converters;
+using Telerik.Sitefinity.Security.Model;
 
 namespace timw255.Sitefinity.Moodle.Security
 {
@@ -69,7 +69,7 @@ namespace timw255.Sitefinity.Moodle.Security
             {
                 var abilities = new ProviderAbilities { ProviderName = Name, ProviderType = GetType().FullName };
                 abilities.AddAbility("GetUser", true, true);
-                abilities.AddAbility("CreateUser", true, true);
+                //abilities.AddAbility("CreateUser", true, true);
                 //abilities.AddAbility("DeleteUser", true, true);
                 //abilities.AddAbility("UpdateUser", true, true);
                 abilities.AddAbility("ValidateUser", true, true);
@@ -82,19 +82,6 @@ namespace timw255.Sitefinity.Moodle.Security
         #endregion
 
         #region Methods
-        protected override Guid GetNewGuid()
-        {
-            return Guid.NewGuid();
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (!disposing)
-            {
-                base.Dispose(false);
-            }
-        }
-
         private bool CheckValidPassword(Telerik.Sitefinity.Security.Model.User user, string password)
         {
             if (user == null || !user.IsApproved || string.IsNullOrWhiteSpace(user.Password))
@@ -119,21 +106,8 @@ namespace timw255.Sitefinity.Moodle.Security
             catch (RuntimeBinderException)
             {
                 return false;
-            } 
-
-            //var passwordFormat = (MembershipPasswordFormat)user.PasswordFormat;
-            //return CheckValidPassword(string.Concat(password, user.Salt), user.Password, passwordFormat);
+            }
         }
-
-        //private bool CheckValidPassword(string enteredByUser, string original, MembershipPasswordFormat passwordFormat)
-        //{
-
-        //    if (passwordFormat != MembershipPasswordFormat.Encrypted)
-        //        return original == EncodePassword(enteredByUser, null, passwordFormat);
-
-        //    var str = DecodePassword(original, passwordFormat);
-        //    return str == enteredByUser;
-        //}
 
         public override bool EmailExists(string email)
         {
@@ -169,9 +143,9 @@ namespace timw255.Sitefinity.Moodle.Security
             return response.Data.Users.Count > 0;
         }
 
-        private Telerik.Sitefinity.Security.Model.User GetSitefinityUser(timw255.Sitefinity.Moodle.Models.User mUser)
+        private User GetSitefinityUser(MoodleUser mUser)
         {
-            var user = new Telerik.Sitefinity.Security.Model.User();
+            var user = new User();
 
             user.ApplicationName = ApplicationName;
             user.IsBackendUser = false;
@@ -179,13 +153,13 @@ namespace timw255.Sitefinity.Moodle.Security
             user.Id = new Guid(Helpers.xorIt(_key, BitConverter.GetBytes(mUser.Id)));
 
             user.Email = mUser.Email;
-            user.Comment = string.Empty;
+            user.Comment = mUser.Description;
             user.LastActivityDate = DateTime.UtcNow.AddDays(-1);
             user.LastModified = DateTime.MinValue;
             user.LastLoginDate = DateTime.MinValue;
             user.FailedPasswordAnswerAttemptWindowStart = DateTime.MinValue;
             user.FailedPasswordAttemptWindowStart = DateTime.MinValue;
-            user.Password = GetNewGuid().ToString();
+            user.Password = Guid.NewGuid().ToString();
             user.ManagerInfo = ManagerInfo;
             user.IsApproved = true; // Convert.ToBoolean(mUser.Confirmed);
             user.PasswordFormat = 1;
@@ -205,7 +179,7 @@ namespace timw255.Sitefinity.Moodle.Security
             base.Initialize(providerName, config, managerType);
         }
 
-        public override IQueryable<Telerik.Sitefinity.Security.Model.User> GetUsers()
+        public override IQueryable<User> GetUsers()
         {
             var client = new RestClient(_moodleUrl);
 
@@ -219,20 +193,23 @@ namespace timw255.Sitefinity.Moodle.Security
 
             IRestResponse<UsersList> response = client.Execute<UsersList>(request);
 
-            var mUsers = response.Data;
+            var users = new List<User>();
 
-            var users = new List<Telerik.Sitefinity.Security.Model.User>();
-
-            foreach (var mUser in mUsers.Users)
+            if (response.Data != null)
             {
-                var user = GetSitefinityUser(mUser);
-                users.Add(user);
-            }
+                var mUsers = response.Data;
 
+                foreach (var mUser in mUsers.Users)
+                {
+                    var user = GetSitefinityUser(mUser);
+                    users.Add(user);
+                }
+            }
+            
             return users.AsQueryable();
         }
 
-        public override Telerik.Sitefinity.Security.Model.User GetUser(Guid id)
+        public override User GetUser(Guid id)
         {
             var client = new RestClient(_moodleUrl);
 
@@ -247,14 +224,14 @@ namespace timw255.Sitefinity.Moodle.Security
             request.AddParameter("field", "id");
             request.AddParameter("values[0]", sId);
 
-            IRestResponse<List<timw255.Sitefinity.Moodle.Models.User>> response = client.Execute<List<timw255.Sitefinity.Moodle.Models.User>>(request);
+            IRestResponse<List<MoodleUser>> response = client.Execute<List<MoodleUser>>(request);
 
             var mUser = response.Data.FirstOrDefault();
 
             return mUser == null ? null : GetSitefinityUser(mUser);
         }
 
-        public override Telerik.Sitefinity.Security.Model.User GetUserByEmail(string email)
+        public override User GetUserByEmail(string email)
         {
             var client = new RestClient(_moodleUrl);
 
@@ -266,14 +243,14 @@ namespace timw255.Sitefinity.Moodle.Security
             request.AddParameter("field", "email");
             request.AddParameter("values[0]", email);
 
-            IRestResponse<List<timw255.Sitefinity.Moodle.Models.User>> response = client.Execute<List<timw255.Sitefinity.Moodle.Models.User>>(request);
+            IRestResponse<List<MoodleUser>> response = client.Execute<List<MoodleUser>>(request);
 
             var mUser = response.Data.FirstOrDefault();
 
             return mUser == null ? null : GetSitefinityUser(mUser);
         }
 
-        public override Telerik.Sitefinity.Security.Model.User GetUser(string username)
+        public override User GetUser(string username)
         {
             var client = new RestClient(_moodleUrl);
 
@@ -285,67 +262,19 @@ namespace timw255.Sitefinity.Moodle.Security
             request.AddParameter("field", "username");
             request.AddParameter("values[0]", username);
 
-            IRestResponse<List<timw255.Sitefinity.Moodle.Models.User>> response = client.Execute<List<timw255.Sitefinity.Moodle.Models.User>>(request);
+            IRestResponse<List<MoodleUser>> response = client.Execute<List<MoodleUser>>(request);
 
             var mUser = response.Data.FirstOrDefault();
 
             return mUser == null ? null : GetSitefinityUser(mUser);
         }
 
-        public override Telerik.Sitefinity.Security.Model.User CreateUser(string username, string password, string email, string passwordQuestion, string passwordAnswer, bool isApproved, object providerUserKey, out MembershipCreateStatus status)
+        public override User CreateUser(string userName)
         {
-            if (!ValidateParameters(ref username, ref password, ref email, ref passwordQuestion, ref passwordAnswer, ref providerUserKey, out status))
-            {
-                return null;
-            }
-
-            var newUser = new timw255.Sitefinity.Moodle.Models.User
-            {
-                Username = username,
-                Password = password,
-                FirstName = Guid.NewGuid().ToString(),
-                LastName = Guid.NewGuid().ToString(),
-                Email = email
-            };
-
-            var client = new RestClient(_moodleUrl);
-
-            var request = new RestRequest("moodle/webservice/rest/server.php?wstoken={wstoken}&wsfunction={wsfunction}&moodlewsrestformat=json", Method.POST);
-
-            request.AddUrlSegment("wstoken", _wsToken);
-            request.AddUrlSegment("wsfunction", "core_user_create_users");
-
-            request.AddParameter("users", newUser);
-
-            var str = GenerateSalt();
-            var utcNow = DateTime.UtcNow;
-
-            var empty = CreateUser((Guid)providerUserKey, username);
-
-            empty.Password = EncodePassword(password, str, PasswordFormat);
-            empty.PasswordAnswer = EncodePassword(passwordAnswer.ToUpperInvariant(), null, PasswordFormat);
-            empty.Salt = str;
-            empty.Email = email;
-            empty.Comment = string.Empty;
-            empty.IsApproved = isApproved;
-            empty.FailedPasswordAttemptCount = 0;
-            empty.FailedPasswordAttemptWindowStart = utcNow;
-            empty.FailedPasswordAnswerAttemptCount = 0;
-            empty.FailedPasswordAnswerAttemptWindowStart = utcNow;
-            empty.PasswordFormat = (int)PasswordFormat;
-            empty.PasswordAnswer = passwordAnswer;
-            empty.SetPasswordQuestion(passwordQuestion);
-            empty.SetCreationDate(DateTime.Now);
-
-            return empty;
+            return CreateUser(Guid.NewGuid(), userName);
         }
 
-        public override Telerik.Sitefinity.Security.Model.User CreateUser(string userName)
-        {
-            return CreateUser(GetNewGuid(), userName);
-        }
-
-        public override Telerik.Sitefinity.Security.Model.User CreateUser(Guid id, string userName)
+        public override User CreateUser(Guid id, string userName)
         {
             if (id == Guid.Empty) throw new ArgumentNullException("id");
 
@@ -358,7 +287,7 @@ namespace timw255.Sitefinity.Moodle.Security
                 }
             }
 
-            var user = new Telerik.Sitefinity.Security.Model.User { ApplicationName = ApplicationName, Id = id };
+            var user = new User { ApplicationName = ApplicationName, Id = id };
             user.SetUserName(userName);
             ((IDataItem)user).Provider = this;
             user.ManagerInfo = ManagerInfo;
@@ -371,7 +300,7 @@ namespace timw255.Sitefinity.Moodle.Security
             return ValidateUser(GetUser(userName), password);
         }
 
-        public override bool ValidateUser(Telerik.Sitefinity.Security.Model.User user, string password)
+        public override bool ValidateUser(User user, string password)
         {
             if (user == null) return false;
 
@@ -391,7 +320,12 @@ namespace timw255.Sitefinity.Moodle.Security
         #endregion
 
         #region Not Supported
-        public override string GetPassword(Telerik.Sitefinity.Security.Model.User user, string answer)
+        public override User CreateUser(string username, string password, string email, string passwordQuestion, string passwordAnswer, bool isApproved, object providerUserKey, out MembershipCreateStatus status)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override string GetPassword(User user, string answer)
         {
             throw new NotSupportedException();
         }
@@ -406,12 +340,12 @@ namespace timw255.Sitefinity.Moodle.Security
             throw new NotSupportedException();
         }
 
-        public override void Delete(Telerik.Sitefinity.Security.Model.User item)
+        public override void Delete(User item)
         {
             throw new NotSupportedException();
         }
 
-        public override string ResetPassword(Telerik.Sitefinity.Security.Model.User user, string answer)
+        public override string ResetPassword(User user, string answer)
         {
             throw new NotSupportedException();
         }
@@ -436,12 +370,12 @@ namespace timw255.Sitefinity.Moodle.Security
             throw new NotSupportedException();
         }
 
-        public override bool ChangePassword(Telerik.Sitefinity.Security.Model.User user, string oldPassword, string newPassword)
+        public override bool ChangePassword(User user, string oldPassword, string newPassword)
         {
             throw new NotSupportedException();
         }
 
-        public override bool ChangePasswordQuestionAndAnswer(Telerik.Sitefinity.Security.Model.User user, string password, string newPasswordQuestion, string newPasswordAnswer)
+        public override bool ChangePasswordQuestionAndAnswer(User user, string password, string newPasswordQuestion, string newPasswordAnswer)
         {
             throw new NotSupportedException();
         }
@@ -471,7 +405,7 @@ namespace timw255.Sitefinity.Moodle.Security
             throw new NotSupportedException();
         }
 
-        public override bool UnlockUser(Telerik.Sitefinity.Security.Model.User user)
+        public override bool UnlockUser(User user)
         {
             throw new NotSupportedException();
         }

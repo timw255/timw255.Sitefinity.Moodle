@@ -4,10 +4,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Telerik.OpenAccess;
+using Telerik.Sitefinity.Security.Model;
 
 namespace timw255.Sitefinity.Moodle.Models
 {
-    public class User
+    public class MoodleUser
     {
         [JsonProperty(PropertyName = "id")]
         public int Id { get; set; } //ID of the user
@@ -104,7 +106,6 @@ namespace timw255.Sitefinity.Moodle.Models
 
         [JsonProperty(PropertyName = "alternatename")]
         public string AlternateName { get; set; } //Optional //The alternate name of the user
-
 
         //public Dictionary<string, string> Preferences { get; set; } // Optional //User preferences
         //public Dictionary<string, string> CustomFields { get; set; } //Optional //User custom fields (also known as user profil fields)
